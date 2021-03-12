@@ -29,8 +29,13 @@ dkms.conf
 # test-oriented
 client
 out
+utime
 
 # tracing tools
 ncsope.*
 cscope.*
 tags
+
+# test file and gnuplot output
+*.txt
+*.png

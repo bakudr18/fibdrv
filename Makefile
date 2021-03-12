@@ -9,7 +9,9 @@ PWD := $(shell pwd)
 
 GIT_HOOKS := .git/hooks/applied
 
-all: $(GIT_HOOKS) client
+.PHONY: all client utime clean
+
+all: $(GIT_HOOKS) client utime
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 
 $(GIT_HOOKS):
@@ -18,11 +20,22 @@ $(GIT_HOOKS):
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
-	$(RM) client out
+	$(RM) client out utime
 load:
 	sudo insmod $(TARGET_MODULE).ko
 unload:
 	sudo rmmod $(TARGET_MODULE) || true >/dev/null
+
+utime: utime.c
+	$(CC) -o $@ $^
+
+performance:
+	$(MAKE) all
+	$(MAKE) load
+	sudo ./utime > scripts/utime.txt
+	$(MAKE) unload
+	gnuplot scripts/time_elapsed.gp
+	eog time_elapsed.png
 
 client: client.c
 	$(CC) -o $@ $^
