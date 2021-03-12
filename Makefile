@@ -32,7 +32,7 @@ utime: utime.c
 performance:
 	$(MAKE) all
 	$(MAKE) load
-	sudo ./utime > scripts/utime.txt
+	sudo taskset -c 7 ./utime > scripts/utime.txt
 	$(MAKE) unload
 	gnuplot scripts/time_elapsed.gp
 	eog time_elapsed.png
