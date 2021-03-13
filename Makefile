@@ -1,5 +1,6 @@
 CONFIG_MODULE_SIG = n
 TARGET_MODULE := fibdrv
+CFLAGS := -Wall
 
 obj-m := $(TARGET_MODULE).o
 ccflags-y := -std=gnu99 -Wno-declaration-after-statement
@@ -27,13 +28,13 @@ unload:
 	sudo rmmod $(TARGET_MODULE) || true >/dev/null
 
 utime: utime.c
-	$(CC) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^
 
 ktime: ktime.c
-	$(CC) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^
 
 client: client.c
-	$(CC) -o $@ $^
+	$(CC) $(CFLAGS) -o $@ $^
 
 performance:
 	$(MAKE) all
