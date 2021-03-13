@@ -9,9 +9,9 @@ PWD := $(shell pwd)
 
 GIT_HOOKS := .git/hooks/applied
 
-.PHONY: all client utime clean
+.PHONY: all client utime ktime clean
 
-all: $(GIT_HOOKS) client utime
+all: $(GIT_HOOKS) client utime ktime
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
 
 $(GIT_HOOKS):
@@ -20,7 +20,7 @@ $(GIT_HOOKS):
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
-	$(RM) client out utime
+	$(RM) client out utime ktime time_elapsed.png
 load:
 	sudo insmod $(TARGET_MODULE).ko
 unload:
@@ -29,16 +29,20 @@ unload:
 utime: utime.c
 	$(CC) -o $@ $^
 
+ktime: ktime.c
+	$(CC) -o $@ $^
+
+client: client.c
+	$(CC) -o $@ $^
+
 performance:
 	$(MAKE) all
 	$(MAKE) load
 	sudo taskset -c 7 ./utime > scripts/utime.txt
+	sudo taskset -c 7 ./ktime > scripts/ktime.txt
 	$(MAKE) unload
 	gnuplot scripts/time_elapsed.gp
 	eog time_elapsed.png
-
-client: client.c
-	$(CC) -o $@ $^
 
 PRINTF = env printf
 PASS_COLOR = \e[32;01m

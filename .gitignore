@@ -30,6 +30,7 @@ dkms.conf
 client
 out
 utime
+ktime
 
 # tracing tools
 ncsope.*

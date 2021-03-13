@@ -23,6 +23,10 @@ static dev_t fib_dev = 0;
 static struct cdev *fib_cdev;
 static struct class *fib_class;
 static DEFINE_MUTEX(fib_mutex);
+struct device *fib_device;
+static bool ktime_enable = false;
+static ktime_t kt;
+static long long (*fib_run)(long long);
 
 static long long fib_sequence(long long k)
 {
@@ -37,6 +41,16 @@ static long long fib_sequence(long long k)
     }
 
     return f[k];
+}
+
+
+static long long fib_time_proxy(long long k)
+{
+    kt = ktime_get();
+    long long result = fib_sequence(k);
+    kt = ktime_sub(ktime_get(), kt);
+
+    return result;
 }
 
 static int fib_open(struct inode *inode, struct file *file)
@@ -60,7 +74,7 @@ static ssize_t fib_read(struct file *file,
                         size_t size,
                         loff_t *offset)
 {
-    return (ssize_t) fib_sequence(*offset);
+    return (ssize_t) fib_run(*offset);
 }
 
 /* write operation is skipped */
@@ -69,7 +83,7 @@ static ssize_t fib_write(struct file *file,
                          size_t size,
                          loff_t *offset)
 {
-    return 1;
+    return ktime_to_ns(kt);
 }
 
 static loff_t fib_device_lseek(struct file *file, loff_t offset, int orig)
@@ -94,6 +108,34 @@ static loff_t fib_device_lseek(struct file *file, loff_t offset, int orig)
     file->f_pos = new_pos;  // This is what we'll use now
     return new_pos;
 }
+
+static ssize_t ktime_measure_show(struct device *dev,
+                                  struct device_attribute *attr,
+                                  char *buf)
+{
+    return scnprintf(buf, 2, "%d", ktime_enable);
+}
+
+static ssize_t ktime_measure_store(struct device *dev,
+                                   struct device_attribute *attr,
+                                   const char *buf,
+                                   size_t count)
+{
+    ktime_enable = (bool) (buf[0] - '0');
+    fib_run = ktime_enable ? &fib_time_proxy : &fib_sequence;
+    return count;
+}
+
+static DEVICE_ATTR(ktime_measure,
+                   S_IWUSR | S_IRUGO,
+                   ktime_measure_show,
+                   ktime_measure_store);
+
+static struct attribute *fib_attrs[] = {&dev_attr_ktime_measure.attr, NULL};
+
+static struct attribute_group fib_group = {
+    .attrs = fib_attrs,
+};
 
 const struct file_operations fib_fops = {
     .owner = THIS_MODULE,
@@ -144,11 +186,19 @@ static int __init init_fib_dev(void)
         goto failed_class_create;
     }
 
-    if (!device_create(fib_class, NULL, fib_dev, NULL, DEV_FIBONACCI_NAME)) {
+    fib_device =
+        device_create(fib_class, NULL, fib_dev, NULL, DEV_FIBONACCI_NAME);
+    if (!fib_device) {
         printk(KERN_ALERT "Failed to create device");
         rc = -4;
         goto failed_device_create;
     }
+
+    if (sysfs_create_group(&fib_device->kobj, &fib_group)) {
+        rc = -5;
+        goto failed_device_create;
+    }
+
     return rc;
 failed_device_create:
     class_destroy(fib_class);
@@ -162,6 +212,7 @@ failed_cdev:
 static void __exit exit_fib_dev(void)
 {
     mutex_destroy(&fib_mutex);
+    sysfs_remove_group(&fib_device->kobj, &fib_group);
     device_destroy(fib_class, fib_dev);
     class_destroy(fib_class);
     cdev_del(fib_cdev);
