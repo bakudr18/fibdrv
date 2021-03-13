@@ -39,4 +39,5 @@ tags
 
 # test file and gnuplot output
 *.txt
+!scripts/expected.txt
 *.png
