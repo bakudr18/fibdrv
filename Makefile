@@ -1,5 +1,6 @@
 CONFIG_MODULE_SIG = n
 TARGET_MODULE := fibdrv
+TARGETS := client utime ktime
 CFLAGS := -Wall
 
 obj-m := $(TARGET_MODULE).o
@@ -10,7 +11,7 @@ PWD := $(shell pwd)
 
 GIT_HOOKS := .git/hooks/applied
 
-.PHONY: all client utime ktime clean
+.PHONY: all clean $(TARGETS)
 
 all: $(GIT_HOOKS) client utime ktime
 	$(MAKE) -C $(KDIR) M=$(PWD) modules
@@ -21,7 +22,7 @@ $(GIT_HOOKS):
 
 clean:
 	$(MAKE) -C $(KDIR) M=$(PWD) clean
-	$(RM) client out utime ktime time_elapsed.png
+	$(RM) out $(TARGETS) time_elapsed.png scripts/utime.txt scripts/ktime.txt
 load:
 	sudo insmod $(TARGET_MODULE).ko
 unload:
