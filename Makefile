@@ -28,7 +28,7 @@ load:
 unload:
 	sudo rmmod $(TARGET_MODULE) || true >/dev/null
 
-utime: utime.c
+utime: utime.o mlock_check.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 ktime: ktime.c
@@ -36,6 +36,9 @@ ktime: ktime.c
 
 client: client.c
 	$(CC) $(CFLAGS) -o $@ $^
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $^ -o $@
 
 performance:
 	$(MAKE) all

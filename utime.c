@@ -1,13 +1,19 @@
+#include <assert.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+#include "mlock_check.h"
 
 #define FIB_DEV "/dev/fibonacci"
 #define KTIME_ENABLE "/sys/class/fibonacci/fibonacci/ktime_measure"
+#define PRE_ALLOCATION_SIZE \
+    (40 * 1024 * 1024)  // ulimit -l to check the maxinum size may lock into
+                        // memory in process
 
 static inline long long elapsed(struct timespec *t1, struct timespec *t2)
 {
@@ -17,6 +23,16 @@ static inline long long elapsed(struct timespec *t1, struct timespec *t2)
 
 int main()
 {
+    configure_malloc_behavior();
+    /* malloc and touch generated */
+    reserve_process_memory(PRE_ALLOCATION_SIZE);
+    check_pagefault(INT_MAX, INT_MAX);
+    /* 2nd malloc and use gnenrated */
+    reserve_process_memory(PRE_ALLOCATION_SIZE);
+
+    /* Check all pages are loaded to memory */
+    assert(check_pagefault(0, 0));
+
     struct timespec t1, t2;
     char buf[1];
     int offset = 100;
@@ -36,13 +52,23 @@ int main()
     }
 
     write(fd_kt, "0", 2);
+    close(fd_kt);
 
+    /* Touch variables which will be used in time critial section. Even
+     * if mlockall has been called, page fault still happens possibly.
+     * Actually clock_gettime causes minor page fault when first time call
+     * here. */
+    clock_gettime(CLOCK_MONOTONIC, &t1);
+    read(fd, buf, 1);
+    clock_gettime(CLOCK_MONOTONIC, &t2);
+    check_pagefault(0, 0);
 
     for (int i = 0; i <= offset; i++) {
         lseek(fd, i, SEEK_SET);
         clock_gettime(CLOCK_MONOTONIC, &t1);
         read(fd, buf, 1);
         clock_gettime(CLOCK_MONOTONIC, &t2);
+        assert(check_pagefault(0, 0));
         printf("%d %lld\n", i, elapsed(&t1, &t2));
     }
 
