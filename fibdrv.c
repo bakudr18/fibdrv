@@ -196,10 +196,12 @@ static int __init init_fib_dev(void)
 
     if (sysfs_create_group(&fib_device->kobj, &fib_group)) {
         rc = -5;
-        goto failed_device_create;
+        goto failed_create_group;
     }
 
     return rc;
+failed_create_group:
+    device_destroy(fib_class, fib_dev);
 failed_device_create:
     class_destroy(fib_class);
 failed_class_create:
