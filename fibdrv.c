@@ -26,7 +26,7 @@ static DEFINE_MUTEX(fib_mutex);
 struct device *fib_device;
 static bool ktime_enable = false;
 static ktime_t kt;
-static long long (*fib_run)(long long);
+static long long (*fib_exec)(long long);
 
 static long long fib_sequence(long long k)
 {
@@ -74,7 +74,7 @@ static ssize_t fib_read(struct file *file,
                         size_t size,
                         loff_t *offset)
 {
-    return (ssize_t) fib_run(*offset);
+    return (ssize_t) fib_exec(*offset);
 }
 
 /* write operation is skipped */
@@ -122,7 +122,7 @@ static ssize_t ktime_measure_store(struct device *dev,
                                    size_t count)
 {
     ktime_enable = (bool) (buf[0] - '0');
-    fib_run = ktime_enable ? &fib_time_proxy : &fib_sequence;
+    fib_exec = ktime_enable ? &fib_time_proxy : &fib_sequence;
     return count;
 }
 
