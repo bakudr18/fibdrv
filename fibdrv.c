@@ -86,6 +86,16 @@ static long long fib_fast_doubling(unsigned int n)
 
 static fib_table fib_method[] = {fib_sequence, fib_fast_doubling};
 
+static inline void fib_impl_set(unsigned int index)
+{
+    fib_index = index;
+
+    if (fib_index >= ARRAY_SIZE(fib_method))
+        fib_index = ARRAY_SIZE(fib_method) - 1;
+
+    fib_impl = fib_method[fib_index];
+}
+
 static long long fib_time_proxy(unsigned int k)
 {
     kt = ktime_get();
@@ -180,12 +190,7 @@ static ssize_t fib_method_store(struct device *dev,
                                 const char *buf,
                                 size_t count)
 {
-    fib_index = (unsigned int) (buf[0] - '0');
-
-    if (fib_index >= ARRAY_SIZE(fib_method))
-        fib_index = ARRAY_SIZE(fib_method) - 1;
-
-    fib_impl = fib_method[fib_index];
+    fib_impl_set((unsigned int) (buf[0] - '0'));
     return count;
 }
 
@@ -269,8 +274,7 @@ static int __init init_fib_dev(void)
         goto failed_create_group;
     }
 
-    fib_index = FIB_FAST_DOUBLING_FLS;
-    fib_impl = fib_method[fib_index];
+    fib_impl_set(FIB_FAST_DOUBLING_FLS);
     fib_time_proxy_p = &fib_time_proxy;
     fib_exec = &fib_impl;
 
