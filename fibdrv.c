@@ -83,7 +83,7 @@ static ssize_t fib_write(struct file *file,
                          size_t size,
                          loff_t *offset)
 {
-    return ktime_to_ns(kt);
+    return ktime_enable ? ktime_to_ns(kt) : 1;
 }
 
 static loff_t fib_device_lseek(struct file *file, loff_t offset, int orig)
@@ -198,6 +198,8 @@ static int __init init_fib_dev(void)
         rc = -5;
         goto failed_create_group;
     }
+
+    fib_exec = &fib_sequence;
 
     return rc;
 failed_create_group:
