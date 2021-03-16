@@ -19,6 +19,11 @@ MODULE_VERSION("0.1");
  */
 #define MAX_LENGTH 92
 
+enum { FIB_SEQUENCE = 0, FIB_FAST_DOUBLING_FLS };
+
+typedef long long (*fib_table)(unsigned int);
+static unsigned int fib_index = FIB_SEQUENCE;
+
 static dev_t fib_dev = 0;
 static struct cdev *fib_cdev;
 static struct class *fib_class;
@@ -26,7 +31,9 @@ static DEFINE_MUTEX(fib_mutex);
 struct device *fib_device;
 static bool ktime_enable = false;
 static ktime_t kt;
-static long long (*fib_exec)(unsigned int);
+static long long (**fib_exec)(unsigned int);
+static long long (*fib_time_proxy_p)(unsigned int);
+static long long (*fib_impl)(unsigned int);
 
 static long long fib_sequence(unsigned int k)
 {
@@ -79,10 +86,12 @@ static long long fib_fast_doubling(unsigned int n)
 }
 */
 
+static fib_table fib_method[] = {fib_sequence, fib_fast_doubling};
+
 static long long fib_time_proxy(unsigned int k)
 {
     kt = ktime_get();
-    long long result = fib_sequence(k);
+    long long result = fib_impl(k);
     kt = ktime_sub(ktime_get(), kt);
 
     return result;
@@ -109,7 +118,7 @@ static ssize_t fib_read(struct file *file,
                         size_t size,
                         loff_t *offset)
 {
-    return (ssize_t) fib_exec((unsigned) *offset);
+    return (ssize_t)(*fib_exec)((unsigned) *offset);
 }
 
 /* write operation is skipped */
@@ -148,7 +157,7 @@ static ssize_t ktime_measure_show(struct device *dev,
                                   struct device_attribute *attr,
                                   char *buf)
 {
-    return scnprintf(buf, 2, "%d", ktime_enable);
+    return scnprintf(buf, PAGE_SIZE, "%d\n", ktime_enable);
 }
 
 static ssize_t ktime_measure_store(struct device *dev,
@@ -157,7 +166,28 @@ static ssize_t ktime_measure_store(struct device *dev,
                                    size_t count)
 {
     ktime_enable = (bool) (buf[0] - '0');
-    fib_exec = ktime_enable ? &fib_time_proxy : &fib_sequence;
+    fib_exec = ktime_enable ? &fib_time_proxy_p : &fib_impl;
+    return count;
+}
+
+static ssize_t fib_method_show(struct device *dev,
+                               struct device_attribute *attr,
+                               char *buf)
+{
+    return scnprintf(buf, PAGE_SIZE, "%d\n", fib_index);
+}
+
+static ssize_t fib_method_store(struct device *dev,
+                                struct device_attribute *attr,
+                                const char *buf,
+                                size_t count)
+{
+    fib_index = (unsigned int) (buf[0] - '0');
+
+    if (fib_index >= ARRAY_SIZE(fib_method))
+        fib_index = ARRAY_SIZE(fib_method) - 1;
+
+    fib_impl = fib_method[fib_index];
     return count;
 }
 
@@ -166,7 +196,14 @@ static DEVICE_ATTR(ktime_measure,
                    ktime_measure_show,
                    ktime_measure_store);
 
-static struct attribute *fib_attrs[] = {&dev_attr_ktime_measure.attr, NULL};
+static DEVICE_ATTR(fib_method,
+                   S_IWUSR | S_IRUGO,
+                   fib_method_show,
+                   fib_method_store);
+
+
+static struct attribute *fib_attrs[] = {&dev_attr_ktime_measure.attr,
+                                        &dev_attr_fib_method.attr, NULL};
 
 static struct attribute_group fib_group = {
     .attrs = fib_attrs,
@@ -234,7 +271,10 @@ static int __init init_fib_dev(void)
         goto failed_create_group;
     }
 
-    fib_exec = &fib_sequence;
+    fib_index = FIB_FAST_DOUBLING_FLS;
+    fib_impl = fib_method[fib_index];
+    fib_time_proxy_p = &fib_time_proxy;
+    fib_exec = &fib_impl;
 
     return rc;
 failed_create_group:
