@@ -1,3 +1,4 @@
+#include <linux/bitops.h>
 #include <linux/cdev.h>
 #include <linux/device.h>
 #include <linux/fs.h>
@@ -48,16 +49,14 @@ static long long fib_sequence(unsigned int k)
 
     return f[k];
 }
-/*
+
 static long long fib_fast_doubling(unsigned int n)
 {
     // The position of the highest bit of n.
     // So we need to loop `h` times to get the answer.
     // Example: n = (Dec)50 = (Bin)00110010, then h = 6.
     //                               ^ 6th bit from right side
-    unsigned int h = 0;
-    for (unsigned int i = n; i; ++h, i >>= 1)
-        ;
+    unsigned int h = fls(n);
 
     long long a = 0;  // F(0) = 0
     long long b = 1;  // F(1) = 1
@@ -84,7 +83,6 @@ static long long fib_fast_doubling(unsigned int n)
 
     return a;
 }
-*/
 
 static fib_table fib_method[] = {fib_sequence, fib_fast_doubling};
 
