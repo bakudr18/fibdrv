@@ -20,7 +20,12 @@ MODULE_VERSION("0.1");
  */
 #define MAX_LENGTH 92
 
-enum { FIB_SEQUENCE = 0, FIB_FAST_DOUBLING_FLS };
+enum {
+    FIB_SEQUENCE = 0,
+    FIB_FAST_DOUBLING,
+    FIB_FAST_DOUBLING_FLS,
+    FIB_FAST_DOUBLING_CLZ
+};
 
 typedef long long (*fib_table)(unsigned int);
 static unsigned int fib_index = FIB_SEQUENCE;
@@ -56,7 +61,9 @@ static long long fib_fast_doubling(unsigned int n)
     // So we need to loop `h` times to get the answer.
     // Example: n = (Dec)50 = (Bin)00110010, then h = 6.
     //                               ^ 6th bit from right side
-    unsigned int h = fls(n);
+    unsigned int h = 0;
+    for (unsigned int i = n; i; ++h, i >>= 1)
+        ;
 
     long long a = 0;  // F(0) = 0
     long long b = 1;  // F(1) = 1
@@ -68,9 +75,8 @@ static long long fib_fast_doubling(unsigned int n)
         // Let j = h-i (looping from i = 1 to i = h), n_j = floor(n / 2^j) = n
         // >> j (n_j = n when j = 0), k = floor(n_j / 2), then a = F(k), b =
         // F(k+1) now.
-        uint64_t c =
-            a * (2 * b - a);         // F(2k) = F(k) * [ 2 * F(k+1) 鈥?? F(k) ]
-        uint64_t d = a * a + b * b;  // F(2k+1) = F(k)^2 + F(k+1)^2
+        uint64_t c = a * (2 * b - a);  // F(2k) = F(k) * [ 2 * F(k+1) - F(k) ]
+        uint64_t d = a * a + b * b;    // F(2k+1) = F(k)^2 + F(k+1)^2
 
         if (mask & n) {  // n_j is odd: k = (n_j-1)/2 => n_j = 2k + 1
             a = d;       //   F(n_j) = F(2k + 1)
@@ -84,7 +90,48 @@ static long long fib_fast_doubling(unsigned int n)
     return a;
 }
 
-static fib_table fib_method[] = {fib_sequence, fib_fast_doubling};
+static long long fib_fast_doubling_fls(unsigned int n)
+{
+    long long a = 0;
+    long long b = 1;
+    for (unsigned int mask = 1 << (fls(n) - 1); mask; mask >>= 1) {
+        uint64_t c = a * (2 * b - a);
+        uint64_t d = a * a + b * b;
+
+        if (mask & n) {
+            a = d;
+            b = c + d;
+        } else {
+            a = c;
+            b = d;
+        }
+    }
+
+    return a;
+}
+
+static long long fib_fast_doubling_clz(unsigned int n)
+{
+    long long a = 0;
+    long long b = 1;
+    for (unsigned int mask = 1 << (31 - __builtin_clz(n)); mask; mask >>= 1) {
+        uint64_t c = a * (2 * b - a);
+        uint64_t d = a * a + b * b;
+
+        if (mask & n) {
+            a = d;
+            b = c + d;
+        } else {
+            a = c;
+            b = d;
+        }
+    }
+
+    return a;
+}
+
+static fib_table fib_method[] = {fib_sequence, fib_fast_doubling,
+                                 fib_fast_doubling_fls, fib_fast_doubling_clz};
 
 static inline void fib_impl_set(unsigned int index)
 {
@@ -94,6 +141,7 @@ static inline void fib_impl_set(unsigned int index)
         fib_index = ARRAY_SIZE(fib_method) - 1;
 
     fib_impl = fib_method[fib_index];
+    printk("fib method: %u\n", fib_index);
 }
 
 static long long fib_time_proxy(unsigned int k)
@@ -274,7 +322,7 @@ static int __init init_fib_dev(void)
         goto failed_create_group;
     }
 
-    fib_impl_set(FIB_FAST_DOUBLING_FLS);
+    fib_impl_set(FIB_SEQUENCE);
     fib_time_proxy_p = &fib_time_proxy;
     fib_exec = &fib_impl;
 

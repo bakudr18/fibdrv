@@ -2,6 +2,7 @@ CONFIG_MODULE_SIG = n
 TARGET_MODULE := fibdrv
 TARGETS := client utime ktime
 CFLAGS := -Wall
+METHOD ?= 0
 
 obj-m := $(TARGET_MODULE).o
 ccflags-y := -std=gnu99 -Wno-declaration-after-statement
@@ -31,7 +32,7 @@ unload:
 utime: utime.o mlock_check.o
 	$(CC) $(CFLAGS) -o $@ $^
 
-ktime: ktime.c
+ktime: ktime.o mlock_check.o
 	$(CC) $(CFLAGS) -o $@ $^
 
 client: client.c
@@ -55,7 +56,7 @@ pass = $(PRINTF) "$(PASS_COLOR)$1 Passed [-]$(NO_COLOR)\n"
 check: all
 	$(MAKE) unload
 	$(MAKE) load
-	sudo ./client > out
+	sudo ./client $(METHOD) > out
 	$(MAKE) unload
 	@diff -u out scripts/expected.txt && $(call pass)
 	@scripts/verify.py
