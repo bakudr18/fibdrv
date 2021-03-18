@@ -42,12 +42,10 @@ client: client.c
 
 performance:
 	$(MAKE) all
-	$(MAKE) load
-	sudo taskset -c 7 ./utime > scripts/utime.txt
-	sudo taskset -c 7 ./ktime > scripts/ktime.txt
 	$(MAKE) unload
-	gnuplot scripts/time_elapsed.gp
-	eog time_elapsed.png
+	$(MAKE) load
+	python3 scripts/driver.py 0
+	$(MAKE) unload
 
 PRINTF = env printf
 PASS_COLOR = \e[32;01m
