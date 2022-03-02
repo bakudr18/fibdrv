@@ -7,7 +7,7 @@ fibonacci number.
 All the developing note is in [HackMD](https://hackmd.io/@MR-9Qa9wQLWglSAUyd6UhQ/HJ363p_Qd).
 
 ## References
-
+* [The Linux Kernel Module Programming Guide](https://sysprog21.github.io/lkmpg/)
 * [Writing a simple device driver](https://www.apriorit.com/dev-blog/195-simple-driver-for-linux-os)
 * [Character device drivers](https://linux-kernel-labs.github.io/refs/heads/master/labs/device_drivers.html)
 * [cdev interface](https://lwn.net/Articles/195805/)
