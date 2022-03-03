@@ -43,6 +43,7 @@ static long long (*fib_impl)(unsigned int);
 
 static long long fib_sequence(unsigned int k)
 {
+    /* FIXME: C99 variable-length array (VLA) is not allowed in Linux kernel. */
     long long f[k + 2];
 
     f[0] = 0;
